@@ -7,6 +7,7 @@ import getpass
 import time
 import sys
 import os
+import re
 
 class Backlog(object):
     '''Handles requests to Agilefant'''
@@ -34,14 +35,23 @@ class Backlog(object):
             iteration_ids.append(iteration['id'])
         return iteration_ids
 
+    def get_ranked_stories(self, iteration_id):
+        payload = {'iterationId': iteration_id}
+        r = self.post("/ajax/iterationData.action", payload)
+        return r.json()['rankedStories']
+
+    def get_story_id(self, story_name):
+        for iteration_id in self.get_iteration_ids():
+            for story in self.get_ranked_stories(iteration_id):
+                if re.sub(r'\W+', '', story['name']).lower() == story_name:
+                    return story['id']
+
     def get_task_id(self, story_name, task_name):
         for iteration_id in self.get_iteration_ids():
-            payload = {'iterationId': iteration_id}
-            r = self.post("/ajax/iterationData.action", payload)
-            for story in r.json()['rankedStories']:
-                if story['name'] == story_name:
+            for story in self.get_ranked_stories(iteration_id):
+                if re.sub(r'\W+', '', story['name']).lower() == story_name:
                     for task in story['tasks']:
-                        if task['name'] == task_name:
+                        if re.sub(r'\W+', '', task['name']).lower() == task_name:
                             return task['id']
 
     def get_user_id(self, name):
@@ -75,11 +85,13 @@ class Agilerfant(object):
     def __init__(self):
         self.backlog = Backlog()
 
+    def story(self, args):
+        story_name = re.sub(r'\W+', '', args.story_name).lower()
+        story_id = self.backlog.get_story_id(story_name)
+        print(story_id)
+
     def log(self, args):
-        task_id = self.backlog.get_task_id(args.story_name, args.task_name)
-        user_id = [self.backlog.get_user_id(args.username)]
         self.backlog.log_task_effort(task_id, args.description, args.time_spent,
-                user_id)
 
     def main(self):
         parser = argparse.ArgumentParser()
@@ -90,6 +102,7 @@ class Agilerfant(object):
         parser.add_argument("-b", "--backlog", help="Backlog ID",
                 type=int)
         subparsers = parser.add_subparsers()
+
         parser_log = subparsers.add_parser("log")
         parser_log.add_argument("story_name", type=str,
                 help="Name of the story which task belongs to")
@@ -100,6 +113,12 @@ class Agilerfant(object):
         parser_log.add_argument("-d", "--description", help="Description",
                 type=str)
         parser_log.set_defaults(func=self.log)
+
+        parser_story = subparsers.add_parser("story")
+        parser_story.add_argument("story_name", type=str,
+                help="Name of the story to print id of")
+        parser_story.set_defaults(func=self.story)
+
         args = parser.parse_args()
         if args.username == None:
             try:
