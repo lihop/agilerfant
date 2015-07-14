@@ -3,6 +3,7 @@
 
 import argparse
 import requests
+import getpass
 import time
 import sys
 import os
@@ -12,11 +13,11 @@ class Backlog(object):
 
     AGILEFANT_SITE = "http://agilefant.cosc.canterbury.ac.nz:8080/agilefant302"
 
-    def __init__(self, backlog_id):
+    def __init__(self, backlog_id=None):
         self.session = requests.Session() 
         self.backlog_id = backlog_id
 
-    def post(self, path, payload):
+    def post(self, path, payload=None):
         '''Makes a POST request. Returns said request'''
         return self.session.post(self.AGILEFANT_SITE + path, params = payload)
 
@@ -43,6 +44,14 @@ class Backlog(object):
                         if task['name'] == task_name:
                             return task['id']
 
+    def get_user_id(self, name):
+        '''Takes either the full name or username of a user and returns
+        Agilefant's internal user id for that user'''
+        r = self.post("/ajax/retrieveAllUsers.action")
+        for user in r.json():
+            if user['name'] == name or user['fullName'] == name:
+                return user['id']
+
     def log_task_effort(self, task_id, description, minutes_spent, user_ids):
         payload = {'parentObjectId': task_id,
                    'hourEntry.date': time.strftime("%s000"),
@@ -64,44 +73,52 @@ class Agilerfant(object):
     '''Command line interface to Agilefant'''
 
     def __init__(self):
-        parser = argparse.ArgumentParser(
-            description="A command line interface for Agilefant",
-            usage="""agilerfant <command> [<args>]
-Possible agilerfant commands are:
-    log      Log effort for a task
-    rmlog    Delete logged effort
-""")
-        parser.add_argument('command', help='Subcommand to run')
-        args = parser.parse_args(sys.argv[1:2])
-        if not hasattr(self, args.command):
-            print("Unrecognised command")
-            parser.print_help()
-            exit(1)
-        getattr(self, args.command)()
+        self.backlog = Backlog()
 
-    def log(self):
-        parser = argparse.ArgumentParser(
-            description="Log effort for a task") 
+    def log(self, args):
+        task_id = self.backlog.get_task_id(args.story_name, args.task_name)
+        user_id = [self.backlog.get_user_id(args.username)]
+        self.backlog.log_task_effort(task_id, args.description, args.time_spent,
+                user_id)
+
+    def main(self):
+        parser = argparse.ArgumentParser()
         parser.add_argument("-u", "--username", help="Agilefant username",
                 type=str)
         parser.add_argument("-p", "--password", help="Agilefant password",
                 type=str)
         parser.add_argument("-b", "--backlog", help="Backlog ID",
                 type=int)
-        args = parser.parse_args(sys.argv[2:])
+        subparsers = parser.add_subparsers()
+        parser_log = subparsers.add_parser("log")
+        parser_log.add_argument("story_name", type=str,
+                help="Name of the story which task belongs to")
+        parser_log.add_argument("task_name", type=str,
+                help="Name of the task to log effort for")
+        parser_log.add_argument("time_spent", type=str,
+                help="Time spent on the task")
+        parser_log.add_argument("-d", "--description", help="Description",
+                type=str)
+        parser_log.set_defaults(func=self.log)
+        args = parser.parse_args()
         if args.username == None:
-            args.username = os.environ['AGILEFANT_USER']
+            try:
+                args.username = os.environ['AGILEFANT_USER']
+            except:
+                args.username = input("Username: ")
         if args.password == None:
-            args.password = os.environ['AGILEFANT_PASSWORD']
+            try:
+                args.password = os.environ['AGILEFANT_PASSWORD']
+            except:
+                args.password = getpass.getpass()
         if args.backlog == None:
-            args.backlog = os.environ['AGILEFANT_BACKLOG']
-        backlog = Backlog(args.backlog)
-        backlog.login(args.username, args.password)
-
-    def rmlog(self):
-        parser = argparse.ArgumentParser(
-            description="Delete logged effort")
-        parser.add_argument("repository")
+            try:
+                args.backlog = os.environ['AGILEFANT_BACKLOG']
+            except:
+                args.backlog = input("Backlog: ")
+        self.backlog.backlog_id = args.backlog
+        self.backlog.login(args.username, args.password)
+        args.func(args)
 
 if __name__ == "__main__":
-    Agilerfant()
+    Agilerfant().main()
