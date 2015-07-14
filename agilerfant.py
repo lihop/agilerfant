@@ -91,7 +91,17 @@ class Agilerfant(object):
         print(story_id)
 
     def log(self, args):
+        user_ids = []
+        story_name = re.sub(r'\W+', '', args.story_name).lower()
+        task_name = re.sub(r'\W+', '', args.task_name).lower()
+        task_id = self.backlog.get_task_id(story_name, task_name)
+        if not args.ids:
+            user_ids = [self.backlog.get_user_id(args.username)]
+        else:
+            for user in args.ids:
+                user_ids.append(self.backlog.get_user_id(user))
         self.backlog.log_task_effort(task_id, args.description, args.time_spent,
+                user_ids)
 
     def main(self):
         parser = argparse.ArgumentParser()
@@ -113,6 +123,8 @@ class Agilerfant(object):
         parser_log.add_argument("-d", "--description", help="Description",
                 type=str)
         parser_log.set_defaults(func=self.log)
+        parser_log.add_argument("-i", "--ids", default=[], nargs='+', type=str,
+                help="A list of user IDs to log for")
 
         parser_story = subparsers.add_parser("story")
         parser_story.add_argument("story_name", type=str,
