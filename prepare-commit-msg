@@ -1,0 +1,17 @@
+#! /usr/bin/env bash
+#
+# Git hook to automatically add story number to commit
+source ${GIT_DIR}/hooks/credentials
+
+BRANCH_NAME=$(git symbolic-ref --short HEAD)
+
+# Uncomment the following if you are using a "something/<story-name>" branch naming
+# scheme:
+STORY_NAME=${BRANCH_NAME#*/}
+
+# Uncomment the following if you are using a "<story-name>/something"
+# naming scheme:
+#STORY_NAME=${BRANCH_NAME%/*}
+
+STORY_NUMBER=$(${GIT_DIR}/hooks/agilerfant.py story ${STORY_NAME})
+echo "story:${STORY_NUMBER}" >> $1
