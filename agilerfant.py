@@ -1,6 +1,7 @@
 #! /usr/bin/env nix-shell 
-#! nix-shell -i python3 -p python3 python34Packages.requests2
+#! nix-shell -i python3 -p python3 python34Packages.requests2 python34Packages.dateutil
 
+import dateutil.parser
 import argparse
 import requests
 import getpass
@@ -105,6 +106,11 @@ class Agilerfant(object):
     def __init__(self):
         self.backlog = Backlog()
 
+    def get_minutes(self, time_spent):
+        '''Expects time_spent to be in a format like 1h, 1h35m, 5m, etc'''
+        time = dateutil.parser.parse(time_spent)
+        return (time.hour * 60) + time.minute
+
     def story(self, args):
         story_name = re.sub(r'\W+', '', args.story_name).lower()
         story_id = self.backlog.get_story_id(story_name)
@@ -114,13 +120,14 @@ class Agilerfant(object):
         user_ids = []
         story_name = re.sub(r'\W+', '', args.story_name).lower()
         task_name = re.sub(r'\W+', '', args.task_name).lower()
+        minutes_spent = self.get_minutes(args.time_spent)
         task_id = self.backlog.get_task_id(story_name, task_name)
         if not args.ids:
             user_ids = [self.backlog.get_user_id(args.username)]
         else:
             for user in args.ids:
                 user_ids.append(self.backlog.get_user_id(user))
-        self.backlog.log_task_effort(task_id, args.description, args.time_spent,
+        self.backlog.log_task_effort(task_id, args.description, minutes_spent,
                 user_ids)
 
     def rmlog(self, args):
@@ -148,8 +155,9 @@ class Agilerfant(object):
                 "iteration name if it is a task without a story")
         parser_log.add_argument("task_name", type=str,
                 help="Name of the task to log effort for")
-        parser_log.add_argument("time_spent", type=str,
-                help="Time spent on the task")
+        parser_log.add_argument("-t", "--time", type=str,
+                help="Time spent on the task in the format NhNm" \
+                "(e.g. 2h20m, 1h, 30m, 5m, etc.)")
         parser_log.add_argument("-d", "--description", help="Description",
                 type=str)
         parser_log.set_defaults(func=self.log)
