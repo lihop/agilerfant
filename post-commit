@@ -1,0 +1,24 @@
+#! /usr/bin/env bash
+#
+# Git hook to automatically log effort spent on a commit.
+# Note: This hook currently only works if you are using a
+# <story-name>/<task-name> branch naming scheme.
+source ${GIT_DIR}/hooks/credentials
+
+BRANCH_NAME=$(git symbolic-ref --short HEAD)
+
+STORY_NAME=${BRANCH_NAME%/*}
+TASK_NAME=${BRANCH_NAME#*/}
+
+COMMIT=$(git rev-parse --short HEAD)
+COMMIT_MSG=$(git log --format=%B -n 1 HEAD)
+
+DESCRIPTION="${COMMIT_MSG} #commits[${COMMIT}]"
+TIME=$(echo ${DESCRIPTION} | sed 's/.*\(time:[0-9|h|m]\{1,5\}\).*/\1/')
+# Remove time:X from commit message
+DESCRIPTION=$(echo "${DESCRIPTION}" | sed 's/time:[0-9|h|m]\{1,5\}//g')
+# Remove story:X from commit message
+DESCRIPTION=$(echo "${DESCRIPTION}" | sed 's/story:[0-9]\+//g')
+
+${GIT_DIR}/hooks/agilerfant.py log "${STORY_NAME}" "${TASK_NAME}" \
+  "${TIME#time:*}" -d "${DESCRIPTION}"
