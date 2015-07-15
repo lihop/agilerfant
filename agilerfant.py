@@ -35,6 +35,11 @@ class Backlog(object):
             iteration_ids.append(iteration['id'])
         return iteration_ids
 
+    def get_iteration(self, iteration_id):
+        payload = {'iterationId': iteration_id}
+        r = self.post("/ajax/iterationData.action", payload)
+        return r.json()
+
     def get_ranked_stories(self, iteration_id):
         payload = {'iterationId': iteration_id}
         r = self.post("/ajax/iterationData.action", payload)
@@ -53,6 +58,12 @@ class Backlog(object):
                     for task in story['tasks']:
                         if re.sub(r'\W+', '', task['name']).lower() == task_name:
                             return task['id']
+        for iteration_id in self.get_iteration_ids():
+            iteration = self.get_iteration(iteration_id)
+            if re.sub(r'\W+', '', iteration['name']).lower() == story_name:
+                for task in iteration['tasks']:
+                    if re.sub(r'\W+', '', task['name']).lower() == task_name:
+                        return task['id']
 
     def get_user_id(self, name):
         '''Takes either the full name or username of a user and returns
@@ -115,7 +126,8 @@ class Agilerfant(object):
 
         parser_log = subparsers.add_parser("log")
         parser_log.add_argument("story_name", type=str,
-                help="Name of the story which task belongs to")
+                help="Name of the story which the task belongs to, or the " \
+                "iteration name if it is a task without a story")
         parser_log.add_argument("task_name", type=str,
                 help="Name of the task to log effort for")
         parser_log.add_argument("time_spent", type=str,
