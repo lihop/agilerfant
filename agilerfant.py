@@ -139,6 +139,7 @@ class Agilerfant(object):
                 type=str)
         parser.add_argument("-b", "--backlog", help="Backlog ID",
                 type=int)
+        parser.set_defaults(func=None)
         subparsers = parser.add_subparsers()
 
         parser_log = subparsers.add_parser("log")
@@ -169,6 +170,9 @@ class Agilerfant(object):
 
 
         args = parser.parse_args()
+        if args.func == None:
+            parser.print_help()
+            exit(1)
         if args.username == None:
             try:
                 args.username = os.environ['AGILEFANT_USER']
