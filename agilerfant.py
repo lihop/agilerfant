@@ -65,6 +65,15 @@ class Backlog(object):
                     if re.sub(r'\W+', '', task['name']).lower() == task_name:
                         return task['id']
 
+    def get_hour_entries(self, task_id):
+        payload = {'parentObjectId': task_id}
+        r = self.post("/ajax/retrieveTaskHourEntries.action", payload)
+        return r.json()
+
+    def delete_hour_entry(self, entry_id):
+        payload = {'hourEntryId': entry_id}
+        r = self.post("/ajax/deleteHourEntry.action", payload)
+
     def get_user_id(self, name):
         '''Takes either the full name or username of a user and returns
         Agilefant's internal user id for that user'''
@@ -114,6 +123,14 @@ class Agilerfant(object):
         self.backlog.log_task_effort(task_id, args.description, args.time_spent,
                 user_ids)
 
+    def rmlog(self, args):
+        story_name = re.sub(r'\W+', '', args.story_name).lower()
+        task_name = re.sub(r'\W+', '', args.task_name).lower()
+        task_id = self.backlog.get_task_id(story_name, task_name)
+        for hour_entry in self.backlog.get_hour_entries(task_id):
+            if args.substring in hour_entry['description']:
+                self.backlog.delete_hour_entry(hour_entry['id'])
+
     def main(self):
         parser = argparse.ArgumentParser()
         parser.add_argument("-u", "--username", help="Agilefant username",
@@ -138,10 +155,18 @@ class Agilerfant(object):
         parser_log.add_argument("-i", "--ids", default=[], nargs='+', type=str,
                 help="A list of user IDs to log for")
 
+        parser_rmlog = subparsers.add_parser("rmlog")
+        parser_rmlog.add_argument("story_name")
+        parser_rmlog.add_argument("task_name")
+        parser_rmlog.add_argument("substring", type=str,
+                help="Will remove entries containing this substring")
+        parser_rmlog.set_defaults(func=self.rmlog)
+
         parser_story = subparsers.add_parser("story")
         parser_story.add_argument("story_name", type=str,
                 help="Name of the story to print id of")
         parser_story.set_defaults(func=self.story)
+
 
         args = parser.parse_args()
         if args.username == None:
