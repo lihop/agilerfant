@@ -120,7 +120,7 @@ class Agilerfant(object):
         user_ids = []
         story_name = re.sub(r'\W+', '', args.story_name).lower()
         task_name = re.sub(r'\W+', '', args.task_name).lower()
-        minutes_spent = self.get_minutes(args.time_spent)
+        minutes_spent = self.get_minutes(args.time)
         task_id = self.backlog.get_task_id(story_name, task_name)
         if not args.ids:
             user_ids = [self.backlog.get_user_id(args.username)]
